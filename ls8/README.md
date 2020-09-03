@@ -101,7 +101,7 @@ there.
 We'll make use of these helper function later.
 
 Later on, you might do further initialization here, e.g. setting the initial
-value of the stack pointer.
+value of the stack pointer.sorr
 
 ## Step 3: Implement the core of `CPU`'s `run()` method
 

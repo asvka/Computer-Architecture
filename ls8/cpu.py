@@ -6,8 +6,13 @@ class CPU:
     """Main CPU class."""
 
     def __init__(self):
-        """Construct a new CPU."""
-        pass
+        self.ram = [0] * 256
+        self.reg = [0] * 8
+        self.running = True
+        self.pc = 0
+        self.LDI = 0b10000010
+        self.PRN = 0b01000111
+        self.HLT = 0b00000001
 
     def load(self):
         """Load a program into memory."""
@@ -21,7 +26,7 @@ class CPU:
             0b10000010, # LDI R0,8
             0b00000000,
             0b00001000,
-            0b01000111, # PRN R0
+            0b01000111, # PRN R0x
             0b00000000,
             0b00000001, # HLT
         ]
@@ -30,6 +35,14 @@ class CPU:
             self.ram[address] = instruction
             address += 1
 
+    def ram_read(self, MAR):
+        # ram_read() should accept the address to read and return the value stored there.
+        # our CPU has a total of 256 bytes of memory and can only compute values up to 255
+        return self.ram[MAR]
+
+    def ram_write(self, MAR, MDR):
+        # ram_write() should accept a value to write, and the address to write it to.
+        self.ram[MAR] = MDR
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
@@ -61,5 +74,23 @@ class CPU:
         print()
 
     def run(self):
-        """Run the CPU."""
-        pass
+        # Binary codes for LDI, PRN, and HLT
+        # LDI = 0b10000010
+        # PRN = 0b01000111
+        # HLT = 0b00000001
+        # while running is true
+        while self.running:
+            # if self.ram == HLT (base case kinda?)
+            if self.ram == self.HLT:
+                self.running = False
+            # if self.ram == LDI
+            if self.ram[self.pc] == self.LDI:
+                payload = self.ram[self.pc + 2]
+                reg_idx = self.ram[self.pc + 1]
+                self.reg[reg_idx] = payload
+                self.pc += 3
+            # if self.ram == PRN
+            if self.ram[self.pc] == self.PRN:
+                reg_prn = self.ram[self.pc + 1]
+                print(self.reg[reg_prn])
+                self.pc += 2
