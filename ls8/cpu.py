@@ -1,6 +1,17 @@
 """CPU functionality."""
 
 import sys
+# LDI = 0b10000010
+# PRN = 0b01000111
+# HLT = 0b00000001
+# MUL = 0b10100010
+# PUSH = 0b01000101
+# POP = 0b01000110
+# RET = 0b00010001
+# CALL = 0b01010000
+# ADD = 0b10100000
+
+
 
 class CPU:
     """Main CPU class."""
@@ -8,32 +19,102 @@ class CPU:
     def __init__(self):
         self.ram = [0] * 256
         self.reg = [0] * 8
+        self.sp = 7
         self.running = True
         self.pc = 0
-        self.LDI = 0b10000010
-        self.PRN = 0b01000111
-        self.HLT = 0b00000001
+        self.branch_table = {
+            0b10000010: self.LDI,
+            0b01000111: self.PRN,
+            0b00000001: self.HLT,
+            0b10100010: self.MUL,
+            0b01000101: self.PUSH,
+            0b01000110: self.POP,
+            0b00010001: self.RET,
+            0b01010000: self.CALL,
+            0b10100000: self.ADD,
+            # 0b10100111: self.CMP,
+            # 0b01010100: self.JMP,
+            # 0b01010110: self.JNE,
+            # 0b01010101: self.JEQ,
+        }
+
+    # Implement the load() function to load an .ls8 file given the filename passed in as an argument
+
+    def LDI(self):
+        operand_a = self.ram_read(self.pc + 1)
+        operand_b = self.ram_read(self.pc + 2)
+        self.reg[operand_a] = operand_b
+        self.pc += 3
+
+    def HLT(self):
+        self.running = False
+        self.pc += 1
+
+    def PRN(self):
+        operand_a = self.ram_read(self.pc + 1)
+        print(self.reg[operand_a])
+        self.pc += 2
+
+    def MUL(self):
+        operand_a = self.ram_read(self.pc + 1)
+        operand_b = self.ram_read(self.pc + 2)
+        self.alu('MUL', operand_a, operand_b)
+        self.pc += 3
+
+    def PUSH(self):
+        reg_index = self.ram_read(self.pc + 1)
+        self.reg[self.sp] -= 1
+        self.ram_write(self.reg[self.sp], self.reg[reg_index])
+        self.pc += 2
+
+    def POP(self):
+        reg_index = self.ram_read(self.pc + 1)
+        self.reg[reg_index] = self.ram_read(self.reg[self.sp])
+        self.reg[self.sp] += 1
+        self.pc += 2
+
+    def CALL(self):
+        given_reg = self.ram[self.pc + 1]
+        self.sp -= 1
+        self.ram[self.sp] = self.pc + 2
+        self.pc = self.reg[given_reg]
+
+    def RET(self):
+        self.pc = self.ram[self.sp]
+        self.reg[7] += 1
+
+    def ADD(self):
+        operand_a = self.ram_read(self.pc + 1)
+        operand_b = self.ram_read(self.pc + 2)
+        self.alu('ADD', operand_a, operand_b)
+        self.pc += 3
+
+    def CMP(self):
+
 
     def load(self):
-        """Load a program into memory."""
-
         address = 0
+        # get by filename
+        print(sys.argv)
+        # fail safe
+        if len(sys.argv) != 2:
+            print(f'Usage: {sys.argv} filename')
+            sys.exit(1)
 
-        # For now, we've just hardcoded a program:
-
-        program = [
-            # From print8.ls8
-            0b10000010, # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111, # PRN R0x
-            0b00000000,
-            0b00000001, # HLT
-        ]
-
-        for instruction in program:
-            self.ram[address] = instruction
-            address += 1
+        try:
+            with open(sys.argv[1]) as f:
+                for line in f:
+                    split_line = line.split('#')
+                    value = split_line[0].strip()
+                    if value == '':
+                        continue
+                    num = int(value, 2)
+                    print(num)
+                    self.ram[address] = num
+                    address += 1
+        except FileNotFoundError:
+            print(f'{sys.argv[1]} not found')
+            sys.exit(2)
 
     def ram_read(self, MAR):
         # ram_read() should accept the address to read and return the value stored there.
@@ -49,7 +130,12 @@ class CPU:
 
         if op == "ADD":
             self.reg[reg_a] += self.reg[reg_b]
-        #elif op == "SUB": etc
+        elif op == "SUB":
+            self.reg[reg_a] -= self.reg[reg_b]
+        elif op == 'MUL':
+            self.reg[reg_a] *= self.reg[reg_b]
+        elif op == 'DIV':
+            self.reg[reg_a] /= self.reg[reg_b]
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -75,22 +161,59 @@ class CPU:
 
     def run(self):
         # Binary codes for LDI, PRN, and HLT
-        # LDI = 0b10000010
-        # PRN = 0b01000111
-        # HLT = 0b00000001
         # while running is true
         while self.running:
-            # if self.ram == HLT (base case kinda?)
-            if self.ram == self.HLT:
-                self.running = False
-            # if self.ram == LDI
-            if self.ram[self.pc] == self.LDI:
-                payload = self.ram[self.pc + 2]
-                reg_idx = self.ram[self.pc + 1]
-                self.reg[reg_idx] = payload
-                self.pc += 3
-            # if self.ram == PRN
-            if self.ram[self.pc] == self.PRN:
-                reg_prn = self.ram[self.pc + 1]
-                print(self.reg[reg_prn])
-                self.pc += 2
+            IR = self.ram_read(self.pc)
+
+            if IR in self.branch_table:
+                self.branch_table[IR]()
+            # instruction = self.ram[self.pc]
+            # sp = self.reg[7]
+            # sp &= 0xff
+            # # self.reg[sp] = 244
+            # operand_a = self.ram_read(self.pc + 1)
+            # operand_b = self.ram_read(self.pc + 2)
+            # # if self.ram == HLT (base case kinda?)
+            # # if instruction == HLT:
+            # #     self.running = False
+            # #     self.pc += 1
+            # # if self.ram == LDI
+            # elif instruction == LDI:
+            #     self.reg[operand_a] = operand_b
+            #     self.pc += 3
+            # # if self.ram == PRN
+            # elif instruction == PRN:
+            #     print(self.reg[operand_a])
+            #     self.pc += 2
+            # elif instruction == MUL:
+            #     self.alu('MUL', operand_a, operand_b)
+            #     self.pc += 3
+            #
+            # elif instruction == ADD:
+            #     self.alu('ADD', operand_a, operand_b)
+            #     self.pc += 3
+            #
+            # elif instruction == PUSH:
+            #     reg_index = self.ram_read(self.pc + 1)
+            #     self.reg[self.sp] -= 1
+            #     self.ram_write(self.reg[self.sp], self.reg[reg_index])
+            #     self.pc += 2
+            #
+            # elif instruction == POP:
+            #     reg_index = self.ram_read(self.pc + 1)
+            #     self.reg[reg_index] = self.ram_read(self.reg[self.sp])
+            #     self.reg[self.sp] += 1
+            #     self.pc += 2
+            #
+            # elif instruction == CALL:
+            #     given_reg = self.ram[self.pc + 1]
+            #     self.reg[7] -= 1
+            #     self.ram[self.reg[7]] = self.pc + 2
+            #     self.pc = self.reg[given_reg]
+            #
+            # elif instruction == RET:
+            #     # self.pc = self.ram_read(self.sp)
+            #     # self.sp += 1
+            #     stack_p = self.reg[7]
+            #     self.pc = self.ram[stack_p]
+            #     self.reg[7] += 1
