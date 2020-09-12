@@ -22,6 +22,7 @@ class CPU:
         self.sp = 7
         self.running = True
         self.pc = 0
+        self.flag = 0b00000000
         self.branch_table = {
             0b10000010: self.LDI,
             0b01000111: self.PRN,
@@ -32,10 +33,10 @@ class CPU:
             0b00010001: self.RET,
             0b01010000: self.CALL,
             0b10100000: self.ADD,
-            # 0b10100111: self.CMP,
-            # 0b01010100: self.JMP,
-            # 0b01010110: self.JNE,
-            # 0b01010101: self.JEQ,
+            0b10100111: self.CMP,
+            0b01010100: self.JMP,
+            0b01010110: self.JNE,
+            0b01010101: self.JEQ,
         }
 
     # Implement the load() function to load an .ls8 file given the filename passed in as an argument
@@ -90,6 +91,28 @@ class CPU:
         self.pc += 3
 
     def CMP(self):
+        operand_a = self.ram_read(self.pc + 1)
+        operand_b = self.ram_read(self.pc + 2)
+        self.alu('CMP', operand_a, operand_b)
+        self.pc += 3
+
+    def JMP(self):
+        reg_index = self.ram_read(self.pc + 1)
+        self.pc = self.reg[reg_index]
+
+    def JEQ(self):
+        if self.flag == 0b00000001:
+            reg_index = self.ram_read(self.pc + 1)
+            self.pc = self.reg[reg_index]
+        else:
+            self.pc += 2
+
+    def JNE(self):
+        if self.flag != 0b00000001:
+            reg_index = self.ram_read(self.pc + 1)
+            self.pc = self.reg[reg_index]
+        else:
+            self.pc += 2
 
 
     def load(self):
@@ -136,6 +159,13 @@ class CPU:
             self.reg[reg_a] *= self.reg[reg_b]
         elif op == 'DIV':
             self.reg[reg_a] /= self.reg[reg_b]
+        elif op == "CMP":
+            if self.reg[reg_a] == self.reg[reg_b]:
+                self.flag = 0b00000001
+            if self.reg[reg_a] < self.reg[reg_b]:
+                self.flag = 0b00000010
+            if self.reg[reg_a] > self.reg[reg_b]:
+                self.flag = 0b00000011
         else:
             raise Exception("Unsupported ALU operation")
 
