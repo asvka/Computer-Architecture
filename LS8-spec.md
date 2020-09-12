@@ -151,7 +151,7 @@ since it was set explicitly.
 
 ## Instruction Layout
 
-Meanings of the bits in the first byte of each instruction: `AABCDDDD`
+Meanings of the bits in the first byte of each instruction:  `AABCDDDD`
 
 * `AA` Number of operands for this opcode, 0-2
 * `B` 1 if this is an ALU operation
